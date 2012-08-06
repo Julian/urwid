@@ -397,16 +397,37 @@ class MainLoop(object):
                 sec = next_alarm[0] - time.time()
                 if sec > 0:
                     break
-                tm, callback, user_data = next_alarm
-                callback(self, user_data)
+                tm, callback = next_alarm
+                callback()
                 
-                if self._alarms:
+                if self.event_loop._alarms:
                     next_alarm = heapq.heappop(self.event_loop._alarms)
                 else:
                     next_alarm = None
             
             if 'window resize' in keys:
                 self.screen_size = None
+
+    def _test_run_screen_event_loop(self):
+        """
+        >>> w = _refl("widget")
+        >>> scr = _refl("screen")
+        >>> scr.get_cols_rows_rval = (10, 5)
+        >>> scr.get_input_rval = [], []
+        >>> ml = MainLoop(w, screen=scr)
+        >>> def stop_now(loop, data):
+        ...     raise ExitMainLoop()
+        >>> handle = ml.set_alarm_in(0, stop_now)
+        >>> try:
+        ...     ml._run_screen_event_loop()
+        ... except ExitMainLoop:
+        ...     pass
+        screen.get_cols_rows()
+        widget.render((10, 5), focus=True)
+        screen.draw_screen((10, 5), None)
+        screen.set_input_timeouts(0)
+        screen.get_input(True)
+        """
 
     def process_input(self, keys):
         """
@@ -500,7 +521,7 @@ class MainLoop(object):
 
     def draw_screen(self):
         """
-        Renter the widgets and paint the screen.  This function is
+        Render the widgets and paint the screen.  This function is
         called automatically from run() but may be called additional
         times if repainting is required without also processing input.
         """
