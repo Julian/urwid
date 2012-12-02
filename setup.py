@@ -20,18 +20,20 @@
 # Urwid web site: http://excess.org/urwid/
 
 try:
-    from setuptools import setup, Extension
+    PYTHON3 = not str is bytes
+except NameError:
+    PYTHON3 = False
+
+try:
+    from setuptools import setup, Extension # distribute required for Python 3
     have_setuptools = True
 except ImportError:
+    if PYTHON3:
+        raise
     from distutils.core import setup, Extension
     have_setuptools = False
 
 import os
-
-try:
-    PYTHON3 = not str is bytes
-except NameError:
-    PYTHON3 = False
 
 exec(open(os.path.join("urwid","version.py")).read())
 release = __version__
@@ -42,6 +44,7 @@ setup_d = {
     'author':"Ian Ward",
     'author_email':"ian@excess.org",
     'ext_modules':[Extension('urwid.str_util', sources=['source/str_util.c'])],
+    'packages':['urwid'],
     'url':"http://excess.org/urwid/",
     'download_url':"http://excess.org/urwid/urwid-%s.tar.gz"%release,
     'license':"LGPL",
@@ -66,6 +69,9 @@ useful for text console application developers including:
 Home Page:
   http://excess.org/urwid/
 
+Documentation:
+  http://excess.org/urwid/docs/
+
 Example Program Screenshots:
   http://excess.org/urwid/examples.html
 """[1:],
@@ -87,8 +93,8 @@ Example Program Screenshots:
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.2",
+        "Programming Language :: Python :: 3.3",
         ],
-    'packages':['urwid'],
      }
 
 if have_setuptools:

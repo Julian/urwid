@@ -29,18 +29,20 @@ from urwid.text_layout import calc_coords
 from urwid.signals import disconnect_signal # doctests
 from urwid.split_repr import python3_repr
 from urwid.decoration import WidgetDecoration
-
+from urwid.command_map import ACTIVATE
 
 class SelectableIcon(Text):
     _selectable = True
     def __init__(self, text, cursor_position=1):
         """
-        text -- markup for this widget
-        cursor_position -- position the cursor will appear in when this
-            widget is in focus
+        :param text: markup for this widget; see :class:`Text` for
+                     description of text markup
+        :param cursor_position: position the cursor will appear in the
+                                text when this widget is in focus
 
-        This is a text widget that is selectable with a cursor
-        displayed at a fixed location in the text when in focus
+        This is a text widget that is selectable.  A cursor
+        displayed at a fixed location in the text when in focus.
+        This widget has no special handling of keyboard or mouse input.
         """
         self.__super.__init__(text)
         self._cursor_position = cursor_position
@@ -67,7 +69,7 @@ class SelectableIcon(Text):
             c = CompositeCanvas(c)
             c.cursor = self.get_cursor_coords(size)
         return c
-    
+
     def get_cursor_coords(self, size):
         """
         Return the position of the cursor if visible.  This method
@@ -80,6 +82,8 @@ class SelectableIcon(Text):
         (maxcol,) = size
         trans = self.get_line_translation(maxcol)
         x, y = calc_coords(self.text, trans, self._cursor_position)
+        if maxcol <= x:
+            return None
         return x, y
 
     def keypress(self, size, key):
@@ -110,18 +114,23 @@ class CheckBox(WidgetWrap):
     def __init__(self, label, state=False, has_mixed=False,
              on_state_change=None, user_data=None):
         """
-        label -- markup for check box label
-        state -- False, True or "mixed"
-        has_mixed -- True if "mixed" is a state to cycle through
-        on_state_change, user_data -- shorthand for connect_signal()
-            function call for a single callback
+        :param label: markup for check box label
+        :param state: False, True or "mixed"
+        :param has_mixed: True if "mixed" is a state to cycle through
+        :param on_state_change: shorthand for connect_signal()
+                                function call for a single callback
+        :param user_data: user_data for on_state_change
 
-        Signals supported: 'change'
-        Register signal handler with:
-          connect_signal(check_box, 'change', callback [,user_data])
+        Signals supported: ``'change'``
+
+        Register signal handler with::
+
+          urwid.connect_signal(check_box, 'change', callback, user_data)
+
         where callback is callback(check_box, new_state [,user_data])
-        Unregister signal handlers with:
-          disconnect_signal(check_box, 'change', callback [,user_data])
+        Unregister signal handlers with::
+
+          urwid.disconnect_signal(check_box, 'change', callback, user_data)
 
         >>> CheckBox(u"Confirm")
         <CheckBox selectable flow widget 'Confirm' state=False>
@@ -177,7 +186,7 @@ class CheckBox(WidgetWrap):
         >>> cb = CheckBox(u"Seriously")
         >>> print cb.get_label()
         Seriously
-        >>> print cb.label  # Urwid 0.9.9 or later
+        >>> print cb.label
         Seriously
         >>> cb.set_label([('bright_attr', u"flashy"), u" normal"])
         >>> print cb.label  #  only text is returned
@@ -192,11 +201,11 @@ class CheckBox(WidgetWrap):
 
         state -- True, False or "mixed"
         do_callback -- False to supress signal from this change
-        
+
         >>> changes = []
-        >>> def callback_a(cb, state, user_data): 
+        >>> def callback_a(cb, state, user_data):
         ...     changes.append("A %r %r" % (state, user_data))
-        >>> def callback_b(cb, state): 
+        >>> def callback_b(cb, state):
         ...     changes.append("B %r" % state)
         >>> cb = CheckBox('test', False, False)
         >>> connect_signal(cb, 'change', callback_a, "user_a")
@@ -205,7 +214,7 @@ class CheckBox(WidgetWrap):
         >>> cb.state
         True
         >>> disconnect_signal(cb, 'change', callback_a, "user_a")
-        >>> cb.state = False  # Urwid 0.9.9 or later
+        >>> cb.state = False
         >>> cb.state
         False
         >>> cb.set_state(True)
@@ -232,15 +241,15 @@ class CheckBox(WidgetWrap):
             ('fixed', self.reserve_columns, self.states[state] ),
             self._label ] )
         self._w.focus_col = 0
-        
+
     def get_state(self):
         """Return the state of the checkbox."""
         return self._state
     state = property(get_state, set_state)
-        
+
     def keypress(self, size, key):
         """
-        Toggle state on 'activate' command.  
+        Toggle state on 'activate' command.
 
         >>> assert CheckBox._command_map[' '] == 'activate'
         >>> assert CheckBox._command_map['enter'] == 'activate'
@@ -255,15 +264,15 @@ class CheckBox(WidgetWrap):
         >>> cb.state
         False
         """
-        if self._command_map[key] != 'activate':
+        if self._command_map[key] != ACTIVATE:
             return key
-        
+
         self.toggle_state()
-        
+
     def toggle_state(self):
         """
         Cycle to the next valid state.
-        
+
         >>> cb = CheckBox("3-state", has_mixed=True)
         >>> cb.state
         False
@@ -290,7 +299,7 @@ class CheckBox(WidgetWrap):
     def mouse_event(self, size, event, button, x, y, focus):
         """
         Toggle state on button 1 press.
-        
+
         >>> size = (20,)
         >>> cb = CheckBox("clickme")
         >>> cb.state
@@ -304,10 +313,10 @@ class CheckBox(WidgetWrap):
             return False
         self.toggle_state()
         return True
-    
-        
+
+
 class RadioButton(CheckBox):
-    states = { 
+    states = {
         True: SelectableIcon("(X)"),
         False: SelectableIcon("( )"),
         'mixed': SelectableIcon("(#)") }
@@ -316,21 +325,26 @@ class RadioButton(CheckBox):
     def __init__(self, group, label, state="first True",
              on_state_change=None, user_data=None):
         """
-        group -- list for radio buttons in same group
-        label -- markup for radio button label
-        state -- False, True, "mixed" or "first True"
-        on_state_change, user_data -- shorthand for connect_signal()
-            function call for a single 'change' callback
+        :param group: list for radio buttons in same group
+        :param label: markup for radio button label
+        :param state: False, True, "mixed" or "first True"
+        :param on_state_change: shorthand for connect_signal()
+                                function call for a single 'change' callback
+        :param user_data: user_data for on_state_change
 
         This function will append the new radio button to group.
         "first True" will set to True if group is empty.
 
-        Signals supported: 'change'
-        Register signal handler with:
-          connect_signal(radio_button, 'change', callback [,user_data])
+        Signals supported: ``'change'``
+
+        Register signal handler with::
+
+          urwid.connect_signal(radio_button, 'change', callback, user_data)
+
         where callback is callback(radio_button, new_state [,user_data])
-        Unregister signal handlers with:
-          disconnect_signal(radio_button, 'change', callback [,user_data])
+        Unregister signal handlers with::
+
+          urwid.disconnect_signal(radio_button, 'change', callback, user_data)
 
         >>> bgroup = [] # button group
         >>> b1 = RadioButton(bgroup, u"Agree")
@@ -348,17 +362,18 @@ class RadioButton(CheckBox):
             state = not group
 
         self.group = group
-        self.__super.__init__(label, state, False, on_state_change, 
+        self.__super.__init__(label, state, False, on_state_change,
             user_data)
         group.append(self)
-    
 
-    
+
+
     def set_state(self, state, do_callback=True):
         """
         Set the RadioButton state.
 
         state -- True, False or "mixed"
+
         do_callback -- False to supress signal from this change
 
         If state is True all other radio buttons in the same button
@@ -397,12 +412,12 @@ class RadioButton(CheckBox):
             if cb is self: continue
             if cb._state:
                 cb.set_state(False)
-    
-    
+
+
     def toggle_state(self):
         """
         Set state to True.
-        
+
         >>> bgroup = [] # button group
         >>> b1 = RadioButton(bgroup, "Agree")
         >>> b2 = RadioButton(bgroup, "Disagree")
@@ -429,16 +444,21 @@ class Button(WidgetWrap):
 
     def __init__(self, label, on_press=None, user_data=None):
         """
-        label -- markup for button label
-        on_press, user_data -- shorthand for connect_signal()
-            function call for a single callback
+        :param label: markup for button label
+        :param on_press: shorthand for connect_signal()
+                         function call for a single callback
+        :param user_data: user_data for on_press
 
-        Signals supported: 'click'
-        Register signal handler with:
-          connect_signal(button, 'click', callback [,user_data])
+        Signals supported: ``'click'``
+
+        Register signal handler with::
+
+          urwid.connect_signal(button, 'click', callback, user_data)
+
         where callback is callback(button [,user_data])
-        Unregister signal handlers with:
-          disconnect_signal(button, 'click', callback [,user_data])
+        Unregister signal handlers with::
+
+          urwid.disconnect_signal(button, 'click', callback, user_data)
 
         >>> Button(u"Ok")
         <Button selectable flow widget 'Ok'>
@@ -486,7 +506,7 @@ class Button(WidgetWrap):
         >>> b = Button(u"Ok")
         >>> print b.get_label()
         Ok
-        >>> print b.label  # Urwid 0.9.9 or later
+        >>> print b.label
         Ok
         """
         return self._label.text
@@ -495,7 +515,7 @@ class Button(WidgetWrap):
     def keypress(self, size, key):
         """
         Send 'click' signal on 'activate' command.
-        
+
         >>> assert Button._command_map[' '] == 'activate'
         >>> assert Button._command_map['enter'] == 'activate'
         >>> size = (15,)
@@ -509,7 +529,7 @@ class Button(WidgetWrap):
         >>> clicked_buttons # ... = u in Python 2
         [...'Cancel', ...'Cancel']
         """
-        if self._command_map[key] != 'activate':
+        if self._command_map[key] != ACTIVATE:
             return key
 
         self._emit('click')

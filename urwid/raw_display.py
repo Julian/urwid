@@ -163,7 +163,7 @@ class Screen(BaseScreen, RealTerminal):
     def start(self, alternate_buffer=True):
         """
         Initialize the screen and input mode.
-        
+
         alternate_buffer -- use alternate screen buffer
         """
         assert not self._started
@@ -182,13 +182,15 @@ class Screen(BaseScreen, RealTerminal):
         self._alternate_buffer = alternate_buffer
         self._input_iter = self._run_input_iter()
         self._next_timeout = self.max_wait
-        
+
         if not self._signal_keys_set:
             self._old_signal_keys = self.tty_signal_keys(fileno=fd)
 
         super(Screen, self).start()
 
-    
+        signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
+
+
     def stop(self):
         """
         Restore the screen.
@@ -196,6 +198,9 @@ class Screen(BaseScreen, RealTerminal):
         self.clear()
         if not self._started:
             return
+
+        signals.emit_signal(self, INPUT_DESCRIPTORS_CHANGED)
+
         self.signal_restore()
 
         fd = self._term_input_file.fileno()
@@ -237,7 +242,7 @@ class Screen(BaseScreen, RealTerminal):
             return fn()
         finally:
             self.stop()
-            
+
     def get_input(self, raw_keys=False):
         """Return pending input as a list.
 
@@ -251,39 +256,42 @@ class Screen(BaseScreen, RealTerminal):
         If raw_keys is False (default) this function will return a list
         of keys pressed.  If raw_keys is True this function will return
         a ( keys pressed, raw keycodes ) tuple instead.
-        
-        Examples of keys returned
-        -------------------------
-        ASCII printable characters:  " ", "a", "0", "A", "-", "/" 
-        ASCII control characters:  "tab", "enter"
-        Escape sequences:  "up", "page up", "home", "insert", "f1"
-        Key combinations:  "shift f1", "meta a", "ctrl b"
-        Window events:  "window resize"
-        
-        When a narrow encoding is not enabled
-        "Extended ASCII" characters:  "\\xa1", "\\xb2", "\\xfe"
 
-        When a wide encoding is enabled
-        Double-byte characters:  "\\xa1\\xea", "\\xb2\\xd4"
+        Examples of keys returned:
 
-        When utf8 encoding is enabled
-        Unicode characters: u"\\u00a5", u'\\u253c"
-        
-        Examples of mouse events returned
-        ---------------------------------
-        Mouse button press: ('mouse press', 1, 15, 13), 
-                            ('meta mouse press', 2, 17, 23)
-        Mouse drag: ('mouse drag', 1, 16, 13),
-                    ('mouse drag', 1, 17, 13),
-                ('ctrl mouse drag', 1, 18, 13)
-        Mouse button release: ('mouse release', 0, 18, 13),
-                              ('ctrl mouse release', 0, 17, 23)
+        * ASCII printable characters:  " ", "a", "0", "A", "-", "/" 
+        * ASCII control characters:  "tab", "enter"
+        * Escape sequences:  "up", "page up", "home", "insert", "f1"
+        * Key combinations:  "shift f1", "meta a", "ctrl b"
+        * Window events:  "window resize"
+
+        When a narrow encoding is not enabled:
+
+        * "Extended ASCII" characters:  "\\xa1", "\\xb2", "\\xfe"
+
+        When a wide encoding is enabled:
+
+        * Double-byte characters:  "\\xa1\\xea", "\\xb2\\xd4"
+
+        When utf8 encoding is enabled:
+
+        * Unicode characters: u"\\u00a5", u'\\u253c"
+
+        Examples of mouse events returned:
+
+        * Mouse button press: ('mouse press', 1, 15, 13), 
+                              ('meta mouse press', 2, 17, 23)
+        * Mouse drag: ('mouse drag', 1, 16, 13),
+                      ('mouse drag', 1, 17, 13),
+                      ('ctrl mouse drag', 1, 18, 13)
+        * Mouse button release: ('mouse release', 0, 18, 13),
+                                ('ctrl mouse release', 0, 17, 23)
         """
         assert self._started
-        
+
         self._wait_for_input_ready(self._next_timeout)
         self._next_timeout, keys, raw = self._input_iter.next()
-        
+
         # Avoid pegging CPU at 100% when slowly resizing
         if keys==['window resize'] and self.prev_input_resize:
             while True:
@@ -299,14 +307,14 @@ class Screen(BaseScreen, RealTerminal):
                     break
             if keys[-1:]!=['window resize']:
                 keys.append('window resize')
-                
+
         if keys==['window resize']:
             self.prev_input_resize = 2
         elif self.prev_input_resize == 2 and not keys:
             self.prev_input_resize = 1
         else:
             self.prev_input_resize = 0
-        
+
         if raw_keys:
             return keys, raw
         return keys
@@ -318,18 +326,21 @@ class Screen(BaseScreen, RealTerminal):
 
         Use this method if you are implementing yout own event loop.
         """
+        if not self._started:
+            return []
+
         fd_list = [self._term_input_file.fileno(), self._resize_pipe_rd]
         if self.gpm_mev is not None:
             fd_list.append(self.gpm_mev.stdout.fileno())
         return fd_list
-        
+
     def get_input_nonblocking(self):
         """
-        Return a (next_input_timeout, keys_pressed, raw_keycodes) 
+        Return a (next_input_timeout, keys_pressed, raw_keycodes)
         tuple.
 
         Use this method if you are implementing your own event loop.
-        
+
         When there is input waiting on one of the descriptors returned
         by get_input_descriptors() this method should be called to
         read and process the input.
@@ -337,8 +348,6 @@ class Screen(BaseScreen, RealTerminal):
         This method expects to be called in next_input_timeout seconds
         (a floating point number) if there is no input waiting.
         """
-        assert self._started
-
         return self._input_iter.next()
 
     def _run_input_iter(self):
@@ -631,11 +640,11 @@ class Screen(BaseScreen, RealTerminal):
             cy = y
 
             whitespace_at_end = False
-            if row and row[-1][2][-1] == ' ':
+            if row and row[-1][2][-1:] == B(' '):
                 whitespace_at_end = True
                 a, cs, run = row[-1]
-                row = row[:-1] + [(a, cs, run.rstrip(' '))]
-            elif y == maxrow-1:
+                row = row[:-1] + [(a, cs, run.rstrip(B(' ')))]
+            elif y == maxrow-1 and maxcol>1:
                 row, back, ins = self._last_row(row)
 
             first = True

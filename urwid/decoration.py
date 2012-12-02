@@ -30,21 +30,22 @@ from urwid.widget import Divider, Edit, Text, SolidFill # doctests
 
 
 class WidgetDecoration(Widget):  # "decorator" was already taken
+    """
+    original_widget -- the widget being decorated
+
+    This is a base class for decoration widgets, widgets
+    that contain one or more widgets and only ever have
+    a single focus.  This type of widget will affect the
+    display or behaviour of the original_widget but it is
+    not part of determining a chain of focus.
+
+    Don't actually do this -- use a WidgetDecoration subclass
+    instead, these are not real widgets:
+
+    >>> WidgetDecoration(Text(u"hi"))
+    <WidgetDecoration flow widget <Text flow widget 'hi'>>
+    """
     def __init__(self, original_widget):
-        """
-        original_widget -- the widget being decorated
-
-        This is a base class for decoration widgets, widgets
-        that contain one or more widgets and only ever have
-        a single focus.  This type of widget will affect the
-        display or behaviour of the original_widget but it is
-        not part of determining a chain of focus.
-
-        Don't actually do this -- use a WidgetDecoration subclass
-        instead, these are not real widgets:
-        >>> WidgetDecoration(Text(u"hi"))
-        <WidgetDecoration flow widget <Text flow widget 'hi'>>
-        """
         self._original_widget = original_widget
     def _repr_words(self):
         return self.__super._repr_words() + [repr(self._original_widget)]
@@ -93,7 +94,7 @@ class WidgetPlaceholder(delegate_to_widget_mixin('_original_widget'),
     This can be useful for making an interface with a number of distinct
     pages or for showing and hiding menu or status bars.
 
-    The widget displayed is stored as a .original_widget property and
+    The widget displayed is stored as the self.original_widget property and
     can be changed by assigning a new widget to it.
     """
     pass
@@ -104,17 +105,23 @@ class AttrMapError(WidgetError):
 
 class AttrMap(delegate_to_widget_mixin('_original_widget'), WidgetDecoration):
     """
-    AttrMap is a decoration that maps one set of attributes to another
+    AttrMap is a decoration that maps one set of attributes to another.
+    This object will pass all function calls and variable references to the
+    wrapped widget.
     """
     def __init__(self, w, attr_map, focus_map=None):
         """
-        w -- widget to wrap (stored as self.original_widget)
-        attr_map -- attribute to apply to w, or dictionary of attribute mappings
-        focus_map -- attribute to apply when in focus or dictionary of
-            attribute mappings, if None use attr
+        :param w: widget to wrap (stored as self.original_widget)
+        :type w: widget
 
-        This object will pass all function calls and variable references
-        to the wrapped widget.
+        :param attr_map: attribute to apply to *w*, or dict of old display
+            attribute: new display attribute mappings
+        :type attr_map: display attribute or dict
+
+        :param focus_map: attribute to apply when in focus or dict of
+            old display attribute: new display attribute mappings;
+            if ``None`` use *attr*
+        :type focus_map: display attribute or dict
 
         >>> AttrMap(Divider(u"!"), 'bright')
         <AttrMap flow widget <Divider flow widget '!'> attr_map={None: 'bright'}>
@@ -162,9 +169,9 @@ class AttrMap(delegate_to_widget_mixin('_original_widget'), WidgetDecoration):
         Note this function does not accept a single attribute the way the
         constructor does.  You must specify {None: attribute} instead.
 
-        >> w = AttrMap(Text("hi"), None)
-        >> w.set_attr({'a':'b'})
-        >> w
+        >>> w = AttrMap(Text(u"hi"), None)
+        >>> w.set_attr_map({'a':'b'})
+        >>> w
         <AttrMap flow widget <Text flow widget 'hi'> attr_map={'a': 'b'}>
         """
         for from_attr, to_attr in attr_map.items():
@@ -191,12 +198,12 @@ class AttrMap(delegate_to_widget_mixin('_original_widget'), WidgetDecoration):
         Note this function does not accept a single attribute the way the
         constructor does.  You must specify {None: attribute} instead.
 
-        >> w = AttrMap(Text("hi"), {})
-        >> w.set_focus_map({'a':'b'})
-        >> w
+        >>> w = AttrMap(Text(u"hi"), {})
+        >>> w.set_focus_map({'a':'b'})
+        >>> w
         <AttrMap flow widget <Text flow widget 'hi'> attr_map={} focus_map={'a': 'b'}>
-        >> w.set_focus_map(None)
-        >> w
+        >>> w.set_focus_map(None)
+        >>> w
         <AttrMap flow widget <Text flow widget 'hi'> attr_map={}>
         """
         if focus_map is not None:
@@ -325,8 +332,10 @@ class BoxAdapter(WidgetDecoration):
         """
         Create a flow widget that contains a box widget
 
-        box_widget -- box widget (stored as self.original_widget)
-        height -- number of rows for box widget
+        :param box_widget: box widget to wrap
+        :type box_widget: Widget
+        :param height: number of rows for box widget
+        :type height: int
 
         >>> BoxAdapter(SolidFill(u"x"), 5) # 5-rows of x's
         <BoxAdapter flow widget <SolidFill box widget 'x'> height=5>
@@ -410,32 +419,48 @@ class Padding(WidgetDecoration):
     def __init__(self, w, align=LEFT, width=RELATIVE_100, min_width=None,
             left=0, right=0):
         """
-        w -- a box, flow or fixed widget to pad on the left and/or right
+        :param w: a box, flow or fixed widget to pad on the left and/or right
             this widget is stored as self.original_widget
-        align -- one of:
-            'left', 'center', 'right'
-            ('relative', percentage 0=left 100=right)
-        width -- one of:
-            fixed number of columns for self.original_widget
-            'pack'   try to pack self.original_widget to its ideal size
-            ('relative', percentage of total width)
-            'clip'   to enable clipping mode for a fixed widget
-        min_width -- the minimum number of columns for
-            self.original_widget or None
-        left -- a fixed number of columns to pad on the left
-        right -- a fixed number of columns to pad on thr right
+        :type w: Widget
 
-        Clipping Mode: (width='clip')
+        :param align: one of: ``'left'``, ``'center'``, ``'right'``
+            (``'relative'``, *percentage* 0=left 100=right)
+
+        :param width: one of:
+
+            *given width*
+              integer number of columns for self.original_widget
+
+            ``'pack'``
+              try to pack self.original_widget to its ideal size
+
+            (``'relative'``, *percentage of total width*)
+              make width depend on the container's width
+
+            ``'clip'``
+              to enable clipping mode for a fixed widget
+
+        :param min_width: the minimum number of columns for
+            self.original_widget or ``None``
+        :type min_width: int
+
+        :param left: a fixed number of columns to pad on the left
+        :type left: int
+
+        :param right: a fixed number of columns to pad on thr right
+        :type right: int
+
+        Clipping Mode: (width= ``'clip'``)
         In clipping mode this padding widget will behave as a flow
         widget and self.original_widget will be treated as a fixed
         widget.  self.original_widget will will be clipped to fit
         the available number of columns.  For example if align is
-        'left' then self.original_widget may be clipped on the right.
+        ``'left'`` then self.original_widget may be clipped on the right.
 
         >>> size = (7,)
         >>> def pr(w):
         ...     for t in w.render(size).text:
-        ...         print "|%s|" % (t,)
+        ...         print "|%s|" % (t.decode('ascii'),)
         >>> pr(Padding(Text(u"Head"), ('relative', 20), 'pack'))
         | Head  |
         >>> pr(Padding(Divider(u"-"), left=2, right=1))
@@ -656,26 +681,43 @@ class FillerError(Exception):
     pass
 
 class Filler(WidgetDecoration):
-    def __init__(self, body, valign=MIDDLE, height=FLOW, min_height=None,
+    def __init__(self, body, valign=MIDDLE, height=PACK, min_height=None,
             top=0, bottom=0):
         """
-        body -- a flow widget or box widget to be filled around (stored
+        :param body: a flow widget or box widget to be filled around (stored
             as self.original_widget)
-        valign -- one of:
-            'top', 'middle', 'bottom'
-            ('relative', percentage 0=top 100=bottom)
-        height -- one of:
-            'flow'  if body is a flow widget
-            number of rows high
-            ('relative', percentage of total height)
-        min_height -- one of:
-            None if no minimum or if body is a flow widget
-            minimum number of rows for the widget when height not fixed
-        top -- a fixed number of rows to fill at the top
-        bottom -- a fixed number of rows to fill at the bottom
+        :type body: Widget
 
-        If body is a flow widget then height must be 'flow' and and
-        min_height will be ignored.
+        :param valign: one of:
+            ``'top'``, ``'middle'``, ``'bottom'``,
+            (``'relative'``, *percentage* 0=top 100=bottom)
+
+        :param height: one of:
+
+            ``'pack'``
+              if body is a flow widget
+
+            *given height*
+              integer number of rows for self.original_widget
+
+            (``'relative'``, *percentage of total height*)
+              make height depend on container's height
+
+        :param min_height: one of:
+
+            ``None``
+              if no minimum or if body is a flow widget
+
+            *minimum height*
+              integer number of rows for the widget when height not fixed
+
+        :param top: a fixed number of rows to fill at the top
+        :type top: int
+        :param bottom: a fixed number of rows to fill at the bottom
+        :type bottom: int
+
+        If body is a flow widget then height must be ``'flow'`` and
+        *min_height* will be ignored.
 
         Filler widgets will try to satisfy height argument first by
         reducing the valign amount when necessary.  If height still
@@ -706,8 +748,8 @@ class Filler(WidgetDecoration):
                 valign = BOTTOM
 
         # convert old flow mode parameter height=None to height='flow'
-        if height is None:
-            height = FLOW
+        if height is None or height == FLOW:
+            height = PACK
 
         self.top = top
         self.bottom = bottom
@@ -716,7 +758,7 @@ class Filler(WidgetDecoration):
         self.height_type, self.height_amount = normalize_height(height,
             FillerError)
 
-        if self.height_type not in (GIVEN, FLOW):
+        if self.height_type not in (GIVEN, PACK):
             self.min_height = min_height
         else:
             self.min_height = None
@@ -750,7 +792,7 @@ class Filler(WidgetDecoration):
         """
         (maxcol, maxrow) = size
 
-        if self.height_type is FLOW:
+        if self.height_type == PACK:
             height = self._original_widget.rows((maxcol,),focus=focus)
             return calculate_top_bottom_filler(maxrow,
                 self.valign_type, self.valign_amount,
@@ -768,7 +810,7 @@ class Filler(WidgetDecoration):
         (maxcol, maxrow) = size
         top, bottom = self.filler_values(size, focus)
 
-        if self.height_type is FLOW:
+        if self.height_type == PACK:
             canv = self._original_widget.render((maxcol,), focus)
         else:
             canv = self._original_widget.render((maxcol,maxrow-top-bottom),focus)
@@ -788,7 +830,7 @@ class Filler(WidgetDecoration):
     def keypress(self, size, key):
         """Pass keypress to self.original_widget."""
         (maxcol, maxrow) = size
-        if self.height_type is FLOW:
+        if self.height_type == PACK:
             return self._original_widget.keypress((maxcol,), key)
 
         top, bottom = self.filler_values((maxcol,maxrow), True)
@@ -801,7 +843,7 @@ class Filler(WidgetDecoration):
             return None
 
         top, bottom = self.filler_values(size, True)
-        if self.height_type is FLOW:
+        if self.height_type == PACK:
             coords = self._original_widget.get_cursor_coords((maxcol,))
         else:
             coords = self._original_widget.get_cursor_coords(
@@ -819,7 +861,7 @@ class Filler(WidgetDecoration):
         if not hasattr(self._original_widget, 'get_pref_col'):
             return None
 
-        if self.height_type is FLOW:
+        if self.height_type == PACK:
             x = self._original_widget.get_pref_col((maxcol,))
         else:
             top, bottom = self.filler_values(size, True)
@@ -838,7 +880,7 @@ class Filler(WidgetDecoration):
         if row < top or row >= maxcol-bottom:
             return False
 
-        if self.height_type is FLOW:
+        if self.height_type == PACK:
             return self._original_widget.move_cursor_to_coords((maxcol,),
                 col, row-top)
         return self._original_widget.move_cursor_to_coords(
@@ -854,11 +896,32 @@ class Filler(WidgetDecoration):
         if row < top or row >= maxrow-bottom:
             return False
 
-        if self.height_type is FLOW:
+        if self.height_type == PACK:
             return self._original_widget.mouse_event((maxcol,),
                 event, button, col, row-top, focus)
         return self._original_widget.mouse_event((maxcol, maxrow-top-bottom),
             event, button,col, row-top, focus)
+
+class WidgetDisable(WidgetDecoration):
+    """
+    A decoration widget that disables interaction with the widget it
+    wraps.  This widget always passes focus=False to the wrapped widget,
+    even if it somehow does become the focus.
+    """
+    no_cache = ["rows"]
+    ignore_focus = True
+
+    def selectable(self):
+        return False
+    def rows(self, size, focus=False):
+        return self._original_widget.rows(size, False)
+    def sizing(self):
+        return self._original_widget.sizing()
+    def pack(self, size, focus=False):
+        return self._original_widget.pack(size, False)
+    def render(self, size, focus=False):
+        canv = self._original_widget.render(size, False)
+        return CompositeCanvas(canv)
 
 def normalize_align(align, err):
     """

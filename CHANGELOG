@@ -1,4 +1,104 @@
-# -*- coding: utf-8 -*-
+ -*- coding: utf-8 -*-
+
+Urwid 1.1.0
+
+    * New common container API: focus, focus_position, contents,
+      options(), get_focus_path(), set_focus_path(), __getitem__,
+      __iter__(), __reversed__() implemented across all included
+      container widgets
+
+      A full description doesn't fit here, see the Container Widgets
+      section in the manual for details
+
+    * New Sphinx-based documentation now included in source:
+      Tutorial rewritten, manual revised and new reference based
+      on updated docstrings (by Marco Giusti, Patrick Totzke)
+
+    * New list walker SimpleFocusListWalker like SimpleListWalker but
+      updates focus position as items are inserted or removed
+
+    * New decoration widget WidgetDisable to disable interaction
+      with the widgets it wraps
+
+    * SelectableIcon selectable text widget used by button widgets is
+      now documented (available since 0.9.9)
+
+    * Columns widget now tries to keep column in focus visible, hiding
+      columns on the left when necessary
+
+    * Padding widget now defaults to ('relative', 100) instead of
+      'pack' so that left and right parameters are more useful and more
+      child widgets are supported
+
+    * New list walker "API Version 2" that is simpler for many list
+      walker uses; "API Version 1" will still continue to be supported
+
+    * List walkers may now allow iteration from the absolute top or
+      bottom of the list if they provide a positions() method
+
+    * raw_display now erases to the end of the line with EL escape
+      sequence to improve copy+paste behavior for some terminals
+
+    * Filler now has top and bottom parameters like Padding's left and
+      right parameters and accepts 'pack' instead of None as a height
+      value for widgets that calculate their own number of rows
+
+    * Pile and Columns now accepts 'pack' instead of 'flow' for widgets
+      that calculate their own number of rows or columns
+
+    * Pile and Columns now accept 'given' instead of 'fixed' for
+      cases where the number of rows or columns are specified by the
+      container options
+
+    * Pile and Columns widgets now accept any iterable to their
+      __init__() methods
+
+    * Widget now has a default focus_position property that raises
+      an IndexError when read to be consistent with new common container
+      API
+
+    * GridFlow now supports multiple cell widths within the same widget
+
+    * BoxWidget, FlowWidget and FixedWidget are deprecated, instead
+      use the sizing() function or _sizing attribute to specify the
+      supported sizing modes for your custom widgets
+
+    * Some new shift+arrow and numpad input sequences from RXVT and
+      xterm are now recognized
+
+    * Fix for alarms when used with a screen event loop (e.g.
+      curses_display)
+
+    * Fix for raw_display when terminal width is 1 column
+
+    * Fixes for a Columns.get_cursor_coords() regression and a
+      SelectableIcon.get_cursor_coords() bug
+
+    * Fixes for incorrect handling of box columns in a number of
+      Columns methods when that column is selectable
+
+    * Fix for Terminal widget input handling with Python 3
+
+
+Urwid 1.0.2
+
+    * Fix for bug when entering Unicode text into Edit widget with
+      bytes caption
+
+    * Fix a regression when not running in UTF-8 mode
+
+    * Fix for a MainLoop.remove_watch_pipe() bug
+
+    * Fix for a bug when packing empty Edit widgets
+
+    * Fix for a ListBox "contents too long" error with very large
+      Edit widgets
+
+    * Prevent ListBoxes from selecting 0-height selectable widgets
+      when moving up or down
+
+    * Fix a number of bugs caused by 0-height widgets in a ListBox
+
 
 Urwid 1.0.1
 

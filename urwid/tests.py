@@ -834,9 +834,9 @@ class TextTest(unittest.TestCase):
 
 class EditTest(unittest.TestCase):
     def setUp(self):
-        self.t1 = urwid.Edit("","blah blah")
-        self.t2 = urwid.Edit("stuff:", "blah blah")
-        self.t3 = urwid.Edit("junk:\n","blah blah\n\nbloo",1)
+        self.t1 = urwid.Edit(B(""),"blah blah")
+        self.t2 = urwid.Edit(B("stuff:"), "blah blah")
+        self.t3 = urwid.Edit(B("junk:\n"),"blah blah\n\nbloo",1)
         self.t4 = urwid.Edit(u"better:")
 
     def ktest(self, e, key, expected, pos, desc):
@@ -1150,6 +1150,12 @@ class ListBoxChangeFocusTest(unittest.TestCase):
         T,E = urwid.Text, urwid.Edit
         #...
 
+    def test5set_focus_valign(self):
+        T,E = urwid.Text, urwid.Edit
+        lbox = urwid.ListBox(urwid.SimpleFocusListWalker([
+            T(''), T('')]))
+        lbox.set_focus_valign('middle')
+        # TODO: actually test the result
 
 
 class ListBoxRenderTest(unittest.TestCase):
@@ -2011,10 +2017,16 @@ class PileTest(unittest.TestCase):
     def test_init_with_a_generator(self):
         urwid.Pile(urwid.Text(c) for c in "ABC")
 
+    def test_change_focus_with_mouse(self):
+        p = urwid.Pile([urwid.Edit(), urwid.Edit()])
+        self.assertEquals(p.focus_position, 0)
+        p.mouse_event((10,), 'button press', 1, 1, 1, True)
+        self.assertEquals(p.focus_position, 1)
+
 
 class ColumnsTest(unittest.TestCase):
-    def cwtest(self, desc, l, divide, size, exp):
-        c = urwid.Columns( l, divide )
+    def cwtest(self, desc, l, divide, size, exp, focus_column=0):
+        c = urwid.Columns(l, divide, focus_column)
         rval = c.column_widths( size )
         assert rval == exp, "%s expected %s, got %s"%(desc,exp,rval)
 
@@ -2046,6 +2058,34 @@ class ColumnsTest(unittest.TestCase):
             x, ('weight',3,x)], 1, (10,), [2,5,1] )
         self.cwtest( "mixed 4 c", [('weight',2,x),('fixed',5,x),
             x, ('weight',3,x)], 1, (20,), [4,5,2,6] )
+
+    def test_widths_focus_end(self):
+        x = urwid.Text("") # sample "column"
+        self.cwtest("end simple 2", [x,x], 0, (20,), [10,10], 1)
+        self.cwtest("end simple 2+1", [x,x], 1, (20,), [10,9], 1)
+        self.cwtest("end simple 3+1", [x,x,x], 1, (20,), [6,6,6], 2)
+        self.cwtest("end simple 3+2", [x,x,x], 2, (20,), [5,6,5], 2)
+        self.cwtest("end simple 3+2", [x,x,x], 2, (21,), [6,6,5], 2)
+        self.cwtest("end simple 4+1", [x,x,x,x], 1, (25,), [6,5,6,5], 3)
+        self.cwtest("end squish 4+1", [x,x,x,x], 1, (7,), [1,1,1,1], 3)
+        self.cwtest("end squish 4+1", [x,x,x,x], 1, (6,), [0,1,2,1], 3)
+        self.cwtest("end squish 4+1", [x,x,x,x], 1, (4,), [0,0,2,1], 3)
+
+        self.cwtest("end fixed 3", [('fixed',4,x),('fixed',6,x),
+            ('fixed',2,x)], 1, (25,), [4,6,2], 2)
+        self.cwtest("end fixed 3 cut", [('fixed',4,x),('fixed',6,x),
+            ('fixed',2,x)], 1, (13,), [0,6,2], 2)
+        self.cwtest("end fixed 3 cut2", [('fixed',4,x),('fixed',6,x),
+            ('fixed',2,x)], 1, (8,), [0,0,2], 2)
+
+        self.cwtest("end mixed 4", [('weight',2,x),('fixed',5,x),
+            x, ('weight',3,x)], 1, (14,), [2,5,1,3], 3)
+        self.cwtest("end mixed 4 a", [('weight',2,x),('fixed',5,x),
+            x, ('weight',3,x)], 1, (12,), [1,5,1,2], 3)
+        self.cwtest("end mixed 4 b", [('weight',2,x),('fixed',5,x),
+            x, ('weight',3,x)], 1, (10,), [0,5,1,2], 3)
+        self.cwtest("end mixed 4 c", [('weight',2,x),('fixed',5,x),
+            x, ('weight',3,x)], 1, (20,), [4,5,2,6], 3)
 
     def mctest(self, desc, l, divide, size, col, row, exp, f_col, pref_col):
         c = urwid.Columns( l, divide )
@@ -2088,6 +2128,15 @@ class ColumnsTest(unittest.TestCase):
         self.assertEquals(c.box_columns, [1])
         c.box_columns=[]
         self.assertEquals(c.box_columns, [])
+
+    def test_box_column(self):
+        c = urwid.Columns([urwid.Filler(urwid.Edit()),urwid.Text('')],
+            box_columns=[0])
+        c.keypress((10,), 'x')
+        c.get_cursor_coords((10,))
+        c.move_cursor_to_coords((10,), 0, 0)
+        c.mouse_event((10,), 'foo', 1, 0, 0, True)
+        c.get_pref_col((10,))
 
 
 class LineBoxTest(unittest.TestCase):
@@ -2196,6 +2245,11 @@ class OverlayTest(unittest.TestCase):
         self.assertEquals(o2.contents[1][1], (
             'right', None, 'relative', 100, None, 4, 5,
             'bottom', None, 'relative', 100, None, 2, 3))
+
+    def test_get_cursor_coords(self):
+        self.assertEquals(urwid.Overlay(urwid.Filler(urwid.Edit()),
+            urwid.SolidFill(u'B'),
+            'right', 1, 'bottom', 1).get_cursor_coords((2,2)), (1,1))
 
 
 class GridFlowTest(unittest.TestCase):
@@ -2346,6 +2400,21 @@ class WidgetSquishTest(unittest.TestCase):
         assert c.rows() == 0
         c = w.render((80,1), focus=False)
         assert c.rows() == 1
+        c = w.render((0, 25), focus=False)
+        c = w.render((1, 25), focus=False)
+
+    def fwstest(self, w):
+        def t(cols, focus):
+            wrows = w.rows((cols,), focus)
+            c = w.render((cols,), focus)
+            assert c.rows() == wrows, (c.rows(), wrows)
+            if focus and hasattr(w, 'get_cursor_coords'):
+                gcc = w.get_cursor_coords((cols,))
+                assert c.cursor == gcc, (c.cursor, gcc)
+        t(0, False)
+        t(1, False)
+        t(0, True)
+        t(1, True)
 
     def test_listbox(self):
         self.wstest(urwid.ListBox([]))
@@ -2388,6 +2457,11 @@ class WidgetSquishTest(unittest.TestCase):
 
     def test_columns(self):
         self.wstest(urwid.Columns([urwid.SolidFill()]))
+        self.wstest(urwid.Columns([(4, urwid.SolidFill())]))
+
+    def test_buttons(self):
+        self.fwstest(urwid.Button(u"hello"))
+        self.fwstest(urwid.RadioButton([], u"hello"))
 
 
 class CommonContainerTest(unittest.TestCase):
