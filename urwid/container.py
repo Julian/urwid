@@ -85,6 +85,23 @@ class WidgetContainerMixin(object):
                 w.focus_position = p # modifies w.focus
             w = w.focus.base_widget
 
+    def get_focus_widgets(self):
+        """
+        Return the .focus values starting from this container
+        and proceeding along each child widget until reaching a leaf
+        (non-container) widget.
+
+        Note that the list does not contain the topmost container widget
+        (i.e, on which this method is called), but does include the
+        lowest leaf widget.
+        """
+        out = []
+        w = self
+        while True:
+            w = w.base_widget.focus
+            if w is None:
+                return out
+            out.append(w)
 
 class WidgetContainerListContentsMixin(object):
     """
@@ -2104,17 +2121,15 @@ class Columns(Widget, WidgetContainerMixin, WidgetContainerListContentsMixin):
         for i, (width, (w, options)) in enumerate(zip(widths, self.contents)):
             end = x + width
             if w.selectable():
-                # FIXME: sometimes, col == 'left' - that doesn't seem like its handled here, does it?
-                # assert isinstance(x, int) and isinstance(col, int), (x, col)
-                if x > col and best is None:
+                if col != RIGHT and (col == LEFT or x > col) and best is None:
                     # no other choice
                     best = i, x, end, w, options
                     break
-                if x > col and col-best[2] < x-col:
+                if col != RIGHT and x > col and col-best[2] < x-col:
                     # choose one on left
                     break
                 best = i, x, end, w, options
-                if col < end:
+                if col != RIGHT and col < end:
                     # choose this one
                     break
             x = end + self.dividechars
